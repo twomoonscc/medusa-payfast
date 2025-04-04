@@ -43,6 +43,27 @@ export function generatePayFastSignature(data: PayFastDataObject, passphrase?: s
 }
 
 /**
+ * Validates the signature received in a PayFast ITN callback.
+ * PayFast calculates the ITN signature on the POST data *without* the passphrase included.
+ * @param data The ITN POST data object.
+ * @param expectedSignature The signature received in the ITN request.
+ * @param passphrase The merchant's passphrase.
+ * @returns True if the signature is valid, false otherwise.
+ */
+export function validatePayFastItnSignature(data: PayFastDataObject, expectedSignature: string, passphrase?: string): boolean {
+  // Exclude the signature property using object destructuring
+  const { signature, ...dataForSigning } = data;
+
+  // Generate the signature string *without* adding the passphrase here
+  const signatureString = generateSignatureString(dataForSigning, passphrase);
+
+  // Generate the expected hash
+  const calculatedSignature = crypto.createHash('md5').update(signatureString).digest('hex');
+
+  return calculatedSignature === expectedSignature;
+}
+
+/**
  * Constructs the PayFast processing URL.
  * @param paymentData The payment data including signature.
  * @param sandbox Whether to use the sandbox URL.

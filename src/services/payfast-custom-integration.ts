@@ -26,7 +26,10 @@ import type {
   WebhookActionResult,
 } from "@medusajs/framework/types"
 import { type PayFastOptions, PaymentProviderKeys } from "../types"
-import { generatePayFastSignature } from "../utils/payfast-utils"
+import {
+  generatePayFastSignature,
+  validatePayFastItnSignature
+} from "../utils/payfast-utils"
 import { v4 as uuidv4 } from 'uuid'
 
 type PayFastDataObject = Record<string, string | number | boolean | undefined | null>;
@@ -49,10 +52,16 @@ export default class PayFastCustomIntegrationService extends AbstractPaymentProv
   }
 
   async getPaymentStatus(
-    input: GetPaymentStatusInput
+    { data }: GetPaymentStatusInput
   ): Promise<GetPaymentStatusOutput> {
-    // TODO: Implement PayFast logic
-    return { status: PaymentSessionStatus.PENDING }
+    // PayFast primarily uses ITN webhooks for status updates.
+    // This method reflects the last known status, often managed by Medusa core
+    // based on webhook results. Without a direct query API or webhook updates yet,
+    // we return PENDING as the default assumption after initiation.
+    // TODO: Potentially integrate with Medusa's internal state if needed later.
+    const paymentStatus = data?.status as PaymentSessionStatus ?? PaymentSessionStatus.PENDING;
+    // We currently don't query PayFast here, so we return the assumed status.
+    return { status: paymentStatus, data: data ?? {} };
   }
 
   async initiatePayment({
@@ -162,7 +171,73 @@ export default class PayFastCustomIntegrationService extends AbstractPaymentProv
   async getWebhookActionAndData(
     webhookData: ProviderWebhookPayload["payload"]
   ): Promise<WebhookActionResult> {
-    // TODO: Implement PayFast logic
-    return { action: PaymentActions.NOT_SUPPORTED }
+    const { passphrase } = this.options_;
+    const itnData = webhookData?.data as PayFastDataObject;
+
+    if (!itnData) {
+        console.error("PayFast ITN Error: Missing ITN data payload.");
+        // Return required fields even on failure
+        return {
+            action: PaymentActions.FAILED,
+            data: { session_id: "", amount: 0 }
+        };
+    }
+
+    // --- 1. Validate Signature --- 
+    const receivedSignature = itnData.signature as string;
+    const m_payment_id_for_error = itnData.m_payment_id as string | undefined;
+
+    if (!receivedSignature) {
+        console.error(`PayFast ITN Error: Missing signature for m_payment_id: ${m_payment_id_for_error}`);
+        return {
+            action: PaymentActions.FAILED,
+            // Ensure session_id is a string, provide amount
+            data: { session_id: m_payment_id_for_error ?? "", amount: 0 }
+        };
+    }
+
+    const isSignatureValid = validatePayFastItnSignature(itnData, receivedSignature, passphrase);
+
+    if (!isSignatureValid) {
+      console.error(`PayFast ITN Error: Invalid signature for m_payment_id: ${m_payment_id_for_error}`);
+      return {
+          action: PaymentActions.FAILED,
+          // Ensure session_id is a string, provide amount
+          data: { session_id: m_payment_id_for_error ?? "", amount: 0 }
+      };
+    }
+
+    // --- 2. Extract Key Data --- 
+    const paymentStatus = itnData.payment_status as string;
+    const m_payment_id = itnData.m_payment_id as string; // Should be present if signature is valid
+    const amount_gross = itnData.amount_gross as string;
+
+    // --- 3. Determine Medusa Action --- 
+    let action: PaymentActions;
+    switch (paymentStatus?.toUpperCase()) {
+      case 'COMPLETE':
+        action = PaymentActions.SUCCESSFUL;
+        break;
+      case 'FAILED':
+        action = PaymentActions.FAILED;
+        break;
+      default:
+        console.warn(`PayFast ITN: Unhandled payment status: ${paymentStatus} for m_payment_id: ${m_payment_id}`);
+        action = PaymentActions.NOT_SUPPORTED; // Or FAILED depending on desired handling
+        break;
+    }
+
+    // --- 4. Return Result --- 
+    // Ensure required fields are present and correctly typed
+    const amountInCents = Math.round(Number.parseFloat(amount_gross || '0') * 100);
+
+    return {
+      action,
+      data: {
+        session_id: m_payment_id ?? "", // Ensure string type
+        amount: amountInCents,
+        // raw: itnData, // Removed: Not part of WebhookActionData type
+      },
+    };
   }
 }
