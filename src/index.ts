@@ -1,10 +1,10 @@
 import { ModuleProvider, Modules } from "@medusajs/framework/utils"
 import {
-  MedusaCustomIntegrationService
+  PayFastCustomIntegrationService
 } from "./services"
 
 const services = [
-  MedusaCustomIntegrationService,
+  PayFastCustomIntegrationService,
 ]
 
 export default ModuleProvider(Modules.PAYMENT, {

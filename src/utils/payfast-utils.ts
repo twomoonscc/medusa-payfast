@@ -1,8 +1,5 @@
 import crypto from 'node:crypto';
-
-// Define a more specific type for payment data
-type PayFastDataValue = string | number | boolean | undefined | null;
-type PayFastDataObject = Record<string, PayFastDataValue>;
+import type { PayFastDataObject } from '../types'; // Import the type
 
 /**
  * Generates the PayFast signature string from payment data.

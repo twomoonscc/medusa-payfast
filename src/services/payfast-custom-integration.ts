@@ -25,14 +25,16 @@ import type {
   UpdatePaymentOutput,
   WebhookActionResult,
 } from "@medusajs/framework/types"
-import { type PayFastOptions, PaymentProviderKeys } from "../types"
+import {
+  type PayFastOptions,
+  PaymentProviderKeys,
+  type PayFastDataObject
+} from "../types"
 import {
   generatePayFastSignature,
   validatePayFastItnSignature
 } from "../utils/payfast-utils"
 import { v4 as uuidv4 } from 'uuid'
-
-type PayFastDataObject = Record<string, string | number | boolean | undefined | null>;
 
 export default class PayFastCustomIntegrationService extends AbstractPaymentProvider<PayFastOptions> {
   static identifier = PaymentProviderKeys.PAYFAST
