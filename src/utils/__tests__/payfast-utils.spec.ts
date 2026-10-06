@@ -30,9 +30,9 @@ describe("PayFast Utils", () => {
     const passphrase = "saltykey";
 
     it("should generate the correct signature without passphrase", () => {
-      // Expected string: key=value pairs sorted alphabetically, URL encoded, joined by &
+      // Expected string: key=value pairs in insertion order, URL encoded, joined by &
       const expectedStringToSign =
-        "amount=100.00&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&email_address=test%40test.com&item_name=Test+Item&m_payment_id=test_123&merchant_id=10000100&merchant_key=46f0cd694581a&name_first=First&name_last=Last&notify_url=http%3A%2F%2Ftest.com%2Fnotify&return_url=http%3A%2F%2Ftest.com%2Fsuccess";
+        "merchant_id=10000100&merchant_key=46f0cd694581a&return_url=http%3A%2F%2Ftest.com%2Fsuccess&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&notify_url=http%3A%2F%2Ftest.com%2Fnotify&name_first=First&name_last=Last&email_address=test%40test.com&m_payment_id=test_123&amount=100.00&item_name=Test+Item";
       const expectedSignature = createMd5Hash(expectedStringToSign);
       const calculatedSignature = generatePayFastSignature(basicData);
       expect(calculatedSignature).toBe(expectedSignature);
@@ -40,7 +40,7 @@ describe("PayFast Utils", () => {
 
     it("should generate the correct signature with passphrase", () => {
       const expectedStringToSignWithPhrase =
-        "amount=100.00&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&email_address=test%40test.com&item_name=Test+Item&m_payment_id=test_123&merchant_id=10000100&merchant_key=46f0cd694581a&name_first=First&name_last=Last&notify_url=http%3A%2F%2Ftest.com%2Fnotify&return_url=http%3A%2F%2Ftest.com%2Fsuccess&passphrase=saltykey";
+        "merchant_id=10000100&merchant_key=46f0cd694581a&return_url=http%3A%2F%2Ftest.com%2Fsuccess&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&notify_url=http%3A%2F%2Ftest.com%2Fnotify&name_first=First&name_last=Last&email_address=test%40test.com&m_payment_id=test_123&amount=100.00&item_name=Test+Item&passphrase=saltykey";
       const expectedSignature = createMd5Hash(expectedStringToSignWithPhrase);
       const calculatedSignature = generatePayFastSignature(
         basicData,
@@ -56,7 +56,7 @@ describe("PayFast Utils", () => {
         item_description: "A description needing encoding",
       };
       const expectedStringToSign =
-        "amount=100.00&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&email_address=test%40test.com&item_description=A+description+needing+encoding&item_name=Test+Item+With+Spaces&m_payment_id=test_123&merchant_id=10000100&merchant_key=46f0cd694581a&name_first=First&name_last=Last&notify_url=http%3A%2F%2Ftest.com%2Fnotify&return_url=http%3A%2F%2Ftest.com%2Fsuccess";
+        "merchant_id=10000100&merchant_key=46f0cd694581a&return_url=http%3A%2F%2Ftest.com%2Fsuccess&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&notify_url=http%3A%2F%2Ftest.com%2Fnotify&name_first=First&name_last=Last&email_address=test%40test.com&m_payment_id=test_123&amount=100.00&item_name=Test+Item+With+Spaces&item_description=A+description+needing+encoding";
       const expectedSignature = createMd5Hash(expectedStringToSign);
       const calculatedSignature = generatePayFastSignature(dataWithSpaces);
       expect(calculatedSignature).toBe(expectedSignature);
@@ -71,7 +71,7 @@ describe("PayFast Utils", () => {
       };
       // Expected string should be the same as the basic data test without passphrase
       const expectedStringToSign =
-        "amount=100.00&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&email_address=test%40test.com&item_name=Test+Item&m_payment_id=test_123&merchant_id=10000100&merchant_key=46f0cd694581a&name_first=First&name_last=Last&notify_url=http%3A%2F%2Ftest.com%2Fnotify&return_url=http%3A%2F%2Ftest.com%2Fsuccess";
+        "merchant_id=10000100&merchant_key=46f0cd694581a&return_url=http%3A%2F%2Ftest.com%2Fsuccess&cancel_url=http%3A%2F%2Ftest.com%2Fcancel&notify_url=http%3A%2F%2Ftest.com%2Fnotify&name_first=First&name_last=Last&email_address=test%40test.com&m_payment_id=test_123&amount=100.00&item_name=Test+Item";
       const expectedSignature = createMd5Hash(expectedStringToSign);
       const calculatedSignature = generatePayFastSignature(dataWithEmpty);
       expect(calculatedSignature).toBe(expectedSignature);
@@ -235,8 +235,7 @@ describe("PayFast Utils", () => {
 // as it's not exported directly.
 const generateSignatureStringForTest = (data: PayFastDataObject, passphrase?: string): string => {
   const sortedKeys = Object.keys(data)
-    .filter(key => data[key] !== null && data[key] !== undefined && data[key] !== '')
-    .sort();
+    .filter(key => data[key] !== null && data[key] !== undefined && data[key] !== '');
 
   const baseParams = sortedKeys.map(key => {
     const valueString = String(data[key]).trim();

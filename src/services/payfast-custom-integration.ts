@@ -91,25 +91,32 @@ export default class PayFastCustomIntegrationService extends AbstractPaymentProv
       throw new Error("PayFast initiatePayment requires 'cancel_url' in the data payload.");
     }
 
-    const m_payment_id = resource_id ?? `medusa-${uuidv4()}`;
+    // Medusa's webhook workflow finds the session by id, so PayFast must echo it back.
+    const session_id =
+      (data?.session_id as string | undefined) ?? context?.idempotency_key
+    const m_payment_id = session_id ?? resource_id ?? `medusa-${uuidv4()}`;
     const item_name = `Payment for ${resource_id ? 'Cart' : 'Transaction'} ${m_payment_id}`;
 
+    // Key order matters: PayFast signs fields in its documented order.
     const paymentData: PayFastDataObject = {
       merchant_id,
       merchant_key,
       return_url,
       cancel_url,
       notify_url,
+      name_first,
+      name_last,
+      email_address: email,
+      cell_number,
       m_payment_id,
       amount: (Number(amount) / 100).toFixed(2),
       item_name,
       item_description,
     };
 
-    if (name_first) paymentData.name_first = name_first;
-    if (name_last) paymentData.name_last = name_last;
-    if (email) paymentData.email_address = email;
-    if (cell_number) paymentData.cell_number = cell_number;
+    for (const key of Object.keys(paymentData)) {
+      if (paymentData[key] === undefined || paymentData[key] === "") delete paymentData[key];
+    }
 
     const signature = generatePayFastSignature(paymentData, passphrase);
 
@@ -124,8 +131,9 @@ export default class PayFastCustomIntegrationService extends AbstractPaymentProv
   async authorizePayment(
     input: AuthorizePaymentInput
   ): Promise<AuthorizePaymentOutput> {
-    // TODO: Implement PayFast logic
-    return { status: PaymentSessionStatus.AUTHORIZED }
+    // PayFast has no separate authorize step; the ITN already confirmed payment.
+    // Medusa persists `data` onto the session and rejects undefined.
+    return { status: PaymentSessionStatus.AUTHORIZED, data: input.data ?? {} }
   }
 
   async cancelPayment(

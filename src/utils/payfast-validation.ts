@@ -133,13 +133,17 @@ export const validateSignatureLocally = async (
   }
 
   let paramString = "";
-  const sortedKeys = Object.keys(payload)
-    .filter((k) => k !== "signature")
-    .sort();
+  // Non-blank fields, in the order received (PayFast does not sort).
+  const keys = Object.keys(payload).filter(
+    (k) =>
+      k !== "signature" &&
+      payload[k] !== null &&
+      payload[k] !== undefined &&
+      String(payload[k]).trim() !== ""
+  );
 
-  for (const key of sortedKeys) {
-    const value =
-      payload[key] === null || payload[key] === undefined ? "" : payload[key];
+  for (const key of keys) {
+    const value = payload[key];
     paramString += `${key}=${encodeURIComponent(String(value).trim()).replace(
       /%20/g,
       "+"

@@ -2,17 +2,18 @@ import crypto from 'node:crypto';
 import type { PayFastDataObject } from '../types'; // Import the type
 
 /**
- * Generates the PayFast signature string from payment data.
+ * Generates the PayFast signature string from payment data, in object key order.
  * @param data The payment data object.
  * @param passphrase Optional passphrase.
  * @returns The signature string (before hashing).
  */
 function generateSignatureString(data: PayFastDataObject, passphrase?: string): string {
-  const sortedKeys = Object.keys(data)
-    .filter(key => data[key] !== null && data[key] !== undefined && data[key] !== '') // Filter out empty/null values
-    .sort();
+  // PayFast signs non-blank fields in the order they appear (outbound: documented
+  // field order; ITN: order received). Do NOT sort.
+  const keys = Object.keys(data)
+    .filter(key => data[key] !== null && data[key] !== undefined && data[key] !== '');
 
-  const baseParams = sortedKeys.map(key => {
+  const baseParams = keys.map(key => {
     // URL encode values and replace spaces with '+'
     // Ensure value is treated as string for encoding
     const valueString = String(data[key]).trim();
@@ -41,7 +42,7 @@ export function generatePayFastSignature(data: PayFastDataObject, passphrase?: s
 
 /**
  * Validates the signature received in a PayFast ITN callback.
- * PayFast calculates the ITN signature on the POST data *without* the passphrase included.
+ * The passphrase (if configured) is appended, and fields are taken in the order received.
  * @param data The ITN POST data object.
  * @param expectedSignature The signature received in the ITN request.
  * @param passphrase The merchant's passphrase.
@@ -51,7 +52,6 @@ export function validatePayFastItnSignature(data: PayFastDataObject, expectedSig
   // Exclude the signature property using object destructuring
   const { signature, ...dataForSigning } = data;
 
-  // Generate the signature string *without* adding the passphrase here
   const signatureString = generateSignatureString(dataForSigning, passphrase);
 
   // Generate the expected hash
